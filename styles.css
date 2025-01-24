@@ -1,22 +1,18 @@
 body {
-    width: 400px;
-    padding: 10px;
     font-family: Arial, sans-serif;
-  }
-  
-  .email-item {
-    border-bottom: 1px solid #eee;
     padding: 10px;
-    margin-bottom: 10px;
-  }
-  
-  .email-item h3 {
-    margin: 0 0 5px 0;
-    font-size: 16px;
-  }
-  
-  .email-item p {
-    margin: 5px 0;
-    font-size: 14px;
-    color: #666;
-  }
+}
+
+.hidden {
+    display: none;
+}
+
+.email-item {
+    padding: 10px;
+    border-bottom: 1px solid #ddd;
+}
+
+.email-item:hover {
+    background-color: #f0f0f0;
+    cursor: pointer;
+}

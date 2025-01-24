@@ -1,102 +1,57 @@
+import { authenticateWithGoogle } from './utils/auth.js';
+import { fetchGmailMessages } from './utils/email-fetcher.js';
+
 document.addEventListener('DOMContentLoaded', () => {
     const loginBtn = document.getElementById('login-btn');
+    const logoutBtn = document.getElementById('logout-btn');
     const loginSection = document.getElementById('login-section');
     const emailSection = document.getElementById('email-section');
-  
-    loginBtn.addEventListener('click', async () => {
-      try {
-        const { token, userInfo } = await authenticateWithGoogle();
-        loginSection.style.display = 'none';
-        emailSection.style.display = 'block';
-        
-        // Fetch and render emails
-        const emails = await fetchGmailMessages(token);
-        renderEmailList(emails);
-      } catch (error) {
-        console.error('Authentication failed', error);
-      }
-    });
-  });
-  
-  function renderEmailList(emails) {
     const emailList = document.getElementById('email-list');
-    emails.forEach(email => {
-      const emailItem = document.createElement('div');
-      emailItem.classList.add('email-item');
-      emailItem.innerHTML = `
-        <h3>${getEmailSubject(email)}</h3>
-        <p>Priority: ${calculateEmailPriority(email)}</p>
-        <p>${getEmailSnippet(email)}</p>
-      `;
-      emailList.appendChild(emailItem);
-    });
-  }async function fetchAndDisplayEmails() {
-    try {
-      // Retrieve stored auth token
-      const { authToken } = await chrome.storage.sync.get('authToken');
-      
-      // Fetch emails
-      const response = await fetch(
-        'https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=20', 
-        {
-          headers: {
-            'Authorization': `Bearer ${authToken}`
-          }
+
+    // Handle Login
+    loginBtn.addEventListener('click', async () => {
+        try {
+            const { token, userInfo } = await authenticateWithGoogle();
+            console.log('Login successful:', userInfo);
+
+            // Show email section
+            loginSection.classList.add('hidden');
+            emailSection.classList.remove('hidden');
+
+            // Fetch and display emails
+            const emails = await fetchGmailMessages(token);
+            emailList.innerHTML = emails
+                .map(
+                    (email) => `
+                        <div class="email-item">
+                            <h3>${email.subject}</h3>
+                            <p>${new Date(parseInt(email.internalDate)).toLocaleString()}</p>
+                        </div>
+                    `
+                )
+                .join('');
+        } catch (error) {
+            console.error('Login failed:', error);
+            alert(error.message);
         }
-      );
-      
-      const messageList = await response.json();
-      
-      // Fetch details for each message
-      const emailDetails = await Promise.all(
-        messageList.messages.map(async (message) => {
-          const detailResponse = await fetch(
-            `https://gmail.googleapis.com/gmail/v1/users/me/messages/${message.id}`, 
-            {
-              headers: {
-                'Authorization': `Bearer ${authToken}`
-              }
+    });
+
+    // Handle Logout
+    logoutBtn.addEventListener('click', () => {
+        chrome.storage.sync.get(['authToken'], async ({ authToken }) => {
+            if (!authToken) {
+                alert('You are already logged out.');
+                return;
             }
-          );
-          return detailResponse.json();
-        })
-      );
-      
-      // Extract and display subjects
-      const emailList = document.getElementById('email-list');
-      emailList.innerHTML = ''; // Clear previous emails
-      
-      emailDetails.forEach(email => {
-        // Find subject header
-        const subjectHeader = email.payload.headers.find(
-          header => header.name === 'Subject'
-        );
-        
-        const subject = subjectHeader ? subjectHeader.value : 'No Subject';
-        
-        // Create email item
-        const emailItem = document.createElement('div');
-        emailItem.classList.add('email-item');
-        emailItem.textContent = subject;
-        
-        emailList.appendChild(emailItem);
-      });
-    } catch (error) {
-      console.error('Error fetching emails:', error);
-      document.getElementById('email-list').textContent = 'Failed to fetch emails';
-    }
-  }
-  
-  // Modify login button event listener
-  loginBtn.addEventListener('click', async () => {
-    try {
-      const { token, userInfo } = await authenticateWithGoogle();
-      loginSection.style.display = 'none';
-      emailSection.style.display = 'block';
-      
-      // Fetch and display emails
-      await fetchAndDisplayEmails();
-    } catch (error) {
-      console.error('Authentication failed', error);
-    }
-  });
+
+            chrome.identity.removeCachedAuthToken({ token: authToken }, () => {
+                chrome.storage.sync.set({ authToken: null }, () => {
+                    loginSection.classList.remove('hidden');
+                    emailSection.classList.add('hidden');
+                    emailList.innerHTML = '';
+                    alert('Logged out successfully.');
+                });
+            });
+        });
+    });
+});
